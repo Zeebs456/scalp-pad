@@ -1,15 +1,125 @@
 <!DOCTYPE html>
 <html>
+<head>
+  <title>Scalp Analysis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background-color: #111;
+      color: #00ffcc;
+      padding: 2rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    h1 {
+      color: #00ffff;
+      font-size: 1.5rem;
+    }
+    .key {
+      color: #999;
+    }
+    .value {
+      color: #fff;
+    }
+    .signal {
+      font-weight: bold;
+      color: #00ff66;
+    }
+    .warning {
+      font-weight: bold;
+      color: #ffcc00;
+    }
+    .alert {
+      font-weight: bold;
+      color: #ff3366;
+    }
+  </style>
+</head>
 <body>
+<h1>🔍 BTC Scalp Analysis</h1>
+<pre id="output">Loading...</pre>
+
 <script>
-fetch("https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=50")
+function calculateEMA(prices, period) {
+  const k = 2 / (period + 1);
+  let ema = prices[0];
+  for (let i = 1; i < prices.length; i++) {
+    ema = prices[i] * k + ema * (1 - k);
+  }
+  return parseFloat(ema.toFixed(2));
+}
+
+function calculateRSI(prices, period = 14) {
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const change = prices[i] - prices[i - 1];
+    if (change > 0) gains += change;
+    else losses -= change;
+  }
+  const avgGain = gains / period;
+  const avgLoss = losses / period;
+  const rs = avgGain / (avgLoss || 1);
+  return parseFloat((100 - 100 / (1 + rs)).toFixed(2));
+}
+
+fetch("https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=100")
   .then(res => res.json())
   .then(data => {
     const closes = data.map(c => parseFloat(c[4]));
-    document.body.innerText = JSON.stringify(closes);
+    const price = closes.at(-1);
+    const ema8 = calculateEMA(closes.slice(-8), 8);
+    const ema21 = calculateEMA(closes.slice(-21), 21);
+    const ema50 = calculateEMA(closes.slice(-50), 50);
+    const rsi = calculateRSI(closes.slice(-15));
+
+    const support = Math.min(...closes.slice(-15));
+    const resistance = Math.max(...closes.slice(-15));
+
+    const emaTrend = ema8 > ema21 && ema21 > ema50 ? "Bullish" :
+                     ema8 < ema21 && ema21 < ema50 ? "Bearish" : "Choppy";
+
+    let signal = "";
+    let signalClass = "";
+    let analysis = "";
+
+    if (ema8 > ema21 && rsi > 55) {
+      signal = "✅ Long opportunity forming";
+      signalClass = "signal";
+      analysis = "EMA trend is bullish and RSI supports momentum. Possible early long scalp setup.";
+    } else if (ema8 < ema21 && rsi < 45) {
+      signal = "⚠️ Short bias setup";
+      signalClass = "alert";
+      analysis = "EMA trend is bearish with weak momentum. RSI is near oversold — short scalp possible on breakdown.";
+    } else {
+      signal = "🔍 Watch closely — not a confirmed entry";
+      signalClass = "warning";
+      analysis = "EMAs are indecisive or flattening. RSI is neutral. Wait for breakout or clear trend.";
+    }
+
+    const watchLevels = `Watch for a break above ${resistance} or drop below ${support} for potential scalp setups.`;
+
+    const output = `
+Price:         ${price}
+EMA 8:         ${ema8}
+EMA 21:        ${ema21}
+EMA 50:        ${ema50}
+RSI (14):      ${rsi}
+Trend:         ${emaTrend}
+Support:       ${support}
+Resistance:    ${resistance}
+
+Signal:        ${signal}
+-------------------------
+${analysis}
+${watchLevels}
+`;
+
+    document.getElementById("output").innerHTML = output;
+    document.getElementById("output").classList.add(signalClass);
   })
   .catch(err => {
-    document.body.innerText = JSON.stringify({ error: err.message });
+    document.getElementById("output").innerText = "Error: " + err.message;
   });
 </script>
 </body>
