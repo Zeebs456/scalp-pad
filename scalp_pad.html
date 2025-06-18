@@ -1,2 +1,80 @@
-<!DOCTYPE html>
-<html><head><title>Scalp Pad</title></head><body><div id="app">Waiting for JS...</div></body></html>
+ <!DOCTYPE html>
+<html>
+<head>
+  <title>Scalp Pad Live</title>
+  <style>
+    body {
+      font-family: -apple-system, sans-serif;
+      padding: 2rem;
+      background: #f4f4f4;
+      color: #111;
+    }
+    h2 { margin-bottom: 0.5rem; }
+    p { margin: 0.3rem 0; }
+    #result {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <h2>📊 BTC Scalp Pad</h2>
+  <div id="result">Loading...</div>
+
+  <script>
+    (async () => {
+      try {
+        const res = await fetch("https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=50");
+        const data = await res.json();
+        const closes = data.map(c => parseFloat(c[4])).slice(-50);
+
+        function ema(period) {
+          const k = 2 / (period + 1);
+          let ema = closes[0];
+          for (let i = 1; i < period; i++) {
+            ema = closes[i] * k + ema * (1 - k);
+          }
+          return parseFloat(ema.toFixed(2));
+        }
+
+        function rsi(period = 14) {
+          let gains = 0, losses = 0;
+          for (let i = 1; i <= period; i++) {
+            const diff = closes[i] - closes[i - 1];
+            if (diff > 0) gains += diff;
+            else losses -= diff;
+          }
+          const rs = gains / losses;
+          return parseFloat((100 - 100 / (1 + rs)).toFixed(2));
+        }
+
+        const result = {
+          price: closes[closes.length - 1],
+          ema8: ema(8),
+          ema21: ema(21),
+          rsi: rsi()
+        };
+
+        document.getElementById("result").innerHTML = `
+          <p><strong>Price:</strong> $${result.price}</p>
+          <p><strong>EMA 8:</strong> $${result.ema8}</p>
+          <p><strong>EMA 21:</strong> $${result.ema21}</p>
+          <p><strong>RSI:</strong> ${result.rsi}</p>
+        `;
+
+        if (typeof completion === "function") {
+          completion(result);
+        }
+      } catch (err) {
+        document.getElementById("result").textContent = "⚠️ Error: " + err.message;
+        if (typeof completion === "function") {
+          completion({ error: err.message });
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
