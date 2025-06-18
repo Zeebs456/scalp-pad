@@ -77,9 +77,10 @@ fetch("https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=100
     const ema21 = calculateEMA(closes.slice(-21), 21);
     const ema50 = calculateEMA(closes.slice(-50), 50);
     const rsi = calculateRSI(closes.slice(-15));
-
     const support = Math.min(...closes.slice(-15));
     const resistance = Math.max(...closes.slice(-15));
+
+    const timestamp = new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
 
     const emaTrend = ema8 > ema21 && ema21 > ema50 ? "Bullish" :
                      ema8 < ema21 && ema21 < ema50 ? "Bearish" : "Choppy";
@@ -103,16 +104,17 @@ fetch("https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=100
     const watchLevels = `Watch for a break above ${resistance} or drop below ${support} for potential scalp setups.`;
 
     const output = `
-Price:      ${price}
-EMA 8:      ${ema8}
-EMA 21:     ${ema21}
-EMA 50:     ${ema50}
-RSI (14):   ${rsi}
-Trend:      ${emaTrend}
-Support:    ${support}
-Resistance: ${resistance}
+Timestamp:   ${timestamp}
+Price:       ${price}
+EMA 8:       ${ema8}
+EMA 21:      ${ema21}
+EMA 50:      ${ema50}
+RSI (14):    ${rsi}
+Trend:       ${emaTrend}
+Support:     ${support}
+Resistance:  ${resistance}
 
-Signal:     ${signal}
+Signal:      ${signal}
 --------------------------
 ${analysis}
 
