@@ -17,7 +17,7 @@
     h1 {
       color: #00ffff;
       font-size: 1.25rem;
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
     }
 
     pre {
@@ -39,10 +39,19 @@
       font-weight: bold;
       color: #ff3366;
     }
+
+    .live-box {
+      font-size: 1.1rem;
+      color: #00ffff;
+      margin-bottom: 1rem;
+    }
   </style>
 </head>
 <body>
 <h1>🔍 BTC Scalp Analysis</h1>
+<div class="live-box">
+  🔴 Live Price: <span id="livePrice">Loading...</span>
+</div>
 <pre id="output">Loading...</pre>
 
 <script>
@@ -68,43 +77,45 @@ function calculateRSI(prices, period = 14) {
   return parseFloat((100 - 100 / (1 + rs)).toFixed(2));
 }
 
-fetch("https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=100")
-  .then(res => res.json())
-  .then(data => {
-    const closes = data.map(c => parseFloat(c[4]));
-    const price = closes.at(-1);
-    const ema8 = calculateEMA(closes.slice(-8), 8);
-    const ema21 = calculateEMA(closes.slice(-21), 21);
-    const ema50 = calculateEMA(closes.slice(-50), 50);
-    const rsi = calculateRSI(closes.slice(-15));
-    const support = Math.min(...closes.slice(-15));
-    const resistance = Math.max(...closes.slice(-15));
+function updateAnalysis() {
+  fetch("https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=100")
+    .then(res => res.json())
+    .then(data => {
+      const closes = data.map(c => parseFloat(c[4]));
+      const price = closes.at(-1);
+      const ema8 = calculateEMA(closes.slice(-8), 8);
+      const ema21 = calculateEMA(closes.slice(-21), 21);
+      const ema50 = calculateEMA(closes.slice(-50), 50);
+      const rsi = calculateRSI(closes.slice(-15));
+      const support = Math.min(...closes.slice(-15));
+      const resistance = Math.max(...closes.slice(-15));
+      const candleTime = new Date(data[data.length - 1][0]);
+      const options = { timeZone: "America/Los_Angeles", hour12: false };
+      const timestamp = candleTime.toLocaleString("en-US", options);
 
-    const timestamp = new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
+      const emaTrend = ema8 > ema21 && ema21 > ema50 ? "Bullish" :
+                      ema8 < ema21 && ema21 < ema50 ? "Bearish" : "Choppy";
 
-    const emaTrend = ema8 > ema21 && ema21 > ema50 ? "Bullish" :
-                     ema8 < ema21 && ema21 < ema50 ? "Bearish" : "Choppy";
+      let signal = "", signalClass = "", analysis = "";
 
-    let signal = "", signalClass = "", analysis = "";
+      if (ema8 > ema21 && rsi > 55) {
+        signal = "✅ Long opportunity forming";
+        signalClass = "signal";
+        analysis = "EMA trend is bullish and RSI supports momentum. Possible early long scalp setup.";
+      } else if (ema8 < ema21 && rsi < 45) {
+        signal = "⚠️ Short bias setup";
+        signalClass = "alert";
+        analysis = "EMA trend is bearish with weak momentum. RSI is near oversold — short scalp possible on breakdown.";
+      } else {
+        signal = "🔍 Watch closely — not a confirmed entry";
+        signalClass = "warning";
+        analysis = "EMAs are indecisive or flattening. RSI is neutral. Wait for breakout or clear trend.";
+      }
 
-    if (ema8 > ema21 && rsi > 55) {
-      signal = "✅ Long opportunity forming";
-      signalClass = "signal";
-      analysis = "EMA trend is bullish and RSI supports momentum. Possible early long scalp setup.";
-    } else if (ema8 < ema21 && rsi < 45) {
-      signal = "⚠️ Short bias setup";
-      signalClass = "alert";
-      analysis = "EMA trend is bearish with weak momentum. RSI is near oversold — short scalp possible on breakdown.";
-    } else {
-      signal = "🔍 Watch closely — not a confirmed entry";
-      signalClass = "warning";
-      analysis = "EMAs are indecisive or flattening. RSI is neutral. Wait for breakout or clear trend.";
-    }
+      const watchLevels = `Watch for a break above ${resistance} or drop below ${support} for potential scalp setups.`;
 
-    const watchLevels = `Watch for a break above ${resistance} or drop below ${support} for potential scalp setups.`;
-
-    const output = `
-Timestamp:   ${timestamp}
+      const output = `
+Timestamp:   ${timestamp} (from candle)
 Price:       ${price}
 EMA 8:       ${ema8}
 EMA 21:      ${ema21}
@@ -121,13 +132,37 @@ ${analysis}
 ${watchLevels}
 `;
 
-    const pre = document.getElementById("output");
-    pre.innerText = output;
-    pre.classList.add(signalClass);
-  })
-  .catch(err => {
-    document.getElementById("output").innerText = "Error: " + err.message;
-  });
+      const pre = document.getElementById("output");
+      pre.innerText = output;
+      pre.classList.remove("signal", "warning", "alert");
+      pre.classList.add(signalClass);
+    })
+    .catch(err => {
+      document.getElementById("output").innerText = "Error: " + err.message;
+    });
+}
+
+function updateLivePrice() {
+  fetch("https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT")
+    .then(res => res.json())
+    .then(data => {
+      const price = parseFloat(data.price).toFixed(2);
+      document.getElementById("livePrice").innerText = `$${price}`;
+    })
+    .catch(() => {
+      document.getElementById("livePrice").innerText = "Unavailable";
+    });
+}
+
+// Initial calls
+updateAnalysis();
+updateLivePrice();
+
+// Refresh live ticker every 5 seconds
+setInterval(updateLivePrice, 5000);
+
+// Optional: refresh analysis every 30 seconds
+// setInterval(updateAnalysis, 30000);
 </script>
 </body>
 </html>
